@@ -9,5 +9,10 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "marked": "^4.3.0",
+    "tagel": "^0.6.1"
+  }
 }
