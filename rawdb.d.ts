@@ -15,6 +15,7 @@ declare global {
 
     interface CollectionItem {
       _id: string
+      _href: string
       [key: string]: any
     }
 
