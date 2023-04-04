@@ -1,14 +1,19 @@
-import { load } from './lib/load-data.js'
+import * as http from 'node:http'
+
+import { init } from './lib/data.js'
 import { httpMiddleware } from './lib/http-middleware.js'
 
+let initialized = false
 
-const ROOT_DIR = 'content'
 
-export const { state, settings } = await load(ROOT_DIR)
-// console.debug(JSON.stringify({ state, settings }, null, 2))
-
-export function rawdb() {
-  return httpMiddleware(state, settings)
+/** @type {(rootDir: string) => Promise<http.RequestListener>} */
+export async function rawdb(rootDir) {
+  if (!rootDir) throw new Error(`rawdb error: "rootDir" is required`)
+  if (!initialized) {
+    initialized = true
+    await init(rootDir)
+  }
+  return httpMiddleware()
 }
 
 
