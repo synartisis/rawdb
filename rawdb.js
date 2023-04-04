@@ -7,7 +7,7 @@ const ROOT_DIR = 'content'
 export const { state, settings } = await load(ROOT_DIR)
 // console.debug(JSON.stringify({ state, settings }, null, 2))
 
-export function rawDbHttpMiddleware() {
+export function rawdb() {
   return httpMiddleware(state, settings)
 }
 
