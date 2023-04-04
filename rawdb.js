@@ -23,22 +23,22 @@ export function rawDbHttpMiddleware() {
 
 
 
-export function getNextItem(collection, currentItem) {
-  if (!state[collection]) return null
-  const currentIndex = state[collection].findIndex(o => o._id === currentItem._id)
-  if (currentIndex < state[collection].length - 1) {
-    return state[collection][currentIndex + 1]
-  } else {
-    return null
-  }
-}
+// export function getNextItem(collection, currentItem) {
+//   if (!state[collection]) return null
+//   const currentIndex = state[collection].findIndex(o => o._id === currentItem._id)
+//   if (currentIndex < state[collection].length - 1) {
+//     return state[collection][currentIndex + 1]
+//   } else {
+//     return null
+//   }
+// }
 
-export function getPrevItem(collection, currentItem) {
-  if (!state[collection]) return null
-  const currentIndex = state[collection].findIndex(o => o._id === currentItem._id)
-  if (currentIndex > 0) {
-    return state[collection][currentIndex - 1]
-  } else {
-    return null
-  }
-}
+// export function getPrevItem(collection, currentItem) {
+//   if (!state[collection]) return null
+//   const currentIndex = state[collection].findIndex(o => o._id === currentItem._id)
+//   if (currentIndex > 0) {
+//     return state[collection][currentIndex - 1]
+//   } else {
+//     return null
+//   }
+// }
