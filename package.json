@@ -5,6 +5,9 @@
   "description": "",
   "exports": "./rawdb.js",
   "types": "rawdb.d.ts",
+  "bin": {
+    "rawdb": "cli.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
