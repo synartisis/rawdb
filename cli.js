@@ -30,28 +30,6 @@ if (command === 'fetch') await fetch()
 if (command === 'push') await push()
 
 
-async function fetch() {
-  checkPaths(local, remote)
-  console.log(`fetching from ${remotePath}/${RAWDB_REMOTE_STAGING_DIR}`)
-  const cmdRSyncRemoteStagingToLocal = exec(`rsync -azu --out-format="%n" '${remotePath}/${RAWDB_REMOTE_STAGING_DIR}/' '${localPath}'`)
-  if (cmdRSyncRemoteStagingToLocal.status === 0) {
-    const rSyncRemoteStagingToLocal = cmdRSyncRemoteStagingToLocal.stdout
-    console.log(rSyncRemoteStagingToLocal?.trim() || 'nothing new')
-  } else {
-    onError(`error listing ${remotePath}`, cmdRSyncRemoteStagingToLocal.status)
-  }
-  console.log(`rawdb fetch succesfully from ${remotePath}`)
-}
-
-
-async function push() {
-  checkPaths(local, remote)
-  console.log(`pushing to ${remotePath}...`)
-  throw new Error('not implemented')
-  console.log(`rawdb push succesfully to ${remotePath}`)
-}
-
-
 async function init() {
   checkPaths(local, remote, true)
   console.log(`initializing rawdb on ${remotePath}...`)
@@ -59,6 +37,35 @@ async function init() {
   const cmdInitRawdb = exec(`(cd ${remote.dirpath}; [[ -f '${RAWDB_REMOTE_CONFIG_FILE}' ]] || echo '{}' > ${RAWDB_REMOTE_CONFIG_FILE}; mkdir ${RAWDB_REMOTE_PROD_DIR} ${RAWDB_REMOTE_STAGING_DIR})`, remote.origin)
   if (cmdInitRawdb.status !== 0) onError(`cannot initialize rawdb to ${remotePath}\n${cmdInitRawdb.stderr}`, cmdInitRawdb.status)
   console.log(`rawdb initialized succesfully to ${remotePath}`)
+}
+
+
+async function fetch() {
+  checkPaths(local, remote)
+  console.log(`fetching from ${remotePath}/${RAWDB_REMOTE_STAGING_DIR}`)
+  const cmdRSyncRemoteStagingToLocal = exec(`rsync -azu --out-format="%n" '${remotePath}/${RAWDB_REMOTE_STAGING_DIR}/' '${localPath}'`)
+  if (cmdRSyncRemoteStagingToLocal.status === 0) {
+    const rSyncRemoteStagingToLocal = cmdRSyncRemoteStagingToLocal.stdout
+    console.log(rSyncRemoteStagingToLocal?.trim() || 'nothing to fetch')
+  } else {
+    onError(`error fetching ${remotePath}/${RAWDB_REMOTE_STAGING_DIR}`, cmdRSyncRemoteStagingToLocal.status)
+  }
+  console.log(`rawdb fetch succesfully from ${remotePath}`)
+}
+
+
+async function push() {
+  checkPaths(local, remote)
+  console.log(`pushing to ${remotePath}/${RAWDB_REMOTE_PROD_DIR}`)
+  const cmdRSyncLocalToRemoteProduction = exec(`rsync -azu --out-format="%n" '${localPath}/' '${remotePath}/${RAWDB_REMOTE_PROD_DIR}/'`)
+  if (cmdRSyncLocalToRemoteProduction.status === 0) {
+    const rSyncLocalToRemoteProduction = cmdRSyncLocalToRemoteProduction.stdout
+    console.log(rSyncLocalToRemoteProduction?.trim() || 'nothing to push')
+    deleteDublicatesFromStaging()
+  } else {
+    onError(`error fetching from ${remotePath}/${RAWDB_REMOTE_PROD_DIR}`, cmdRSyncLocalToRemoteProduction.status)
+  }  
+  console.log(`rawdb push succesfully to ${remotePath}`)
 }
 
 
@@ -79,6 +86,24 @@ function checkPaths(localPath, remotePath, initializing = false) {
   }
 }
 
+
+function deleteDublicatesFromStaging() {
+  // TODO: must check modified date. newer files on staging must not be deleted
+  // find staging/ -type f -newermt "2023-04-06T12:50:00";
+  // date -Iseconds
+  // rsync --files-from=
+
+  return console.log(`*** WARNING: delete dublicate files is not ready yet!!!!`)
+
+  console.log('deleting dublicate files from staging')
+  const cmdDeleteDublicatesFromStaging = exec(`rsync -azu --out-format="%n" --existing --ignore-non-existing --delete '${remote.dirpath}/${RAWDB_REMOTE_PROD_DIR}/' '${remote.dirpath}/${RAWDB_REMOTE_STAGING_DIR}/'`, remote.origin)
+  if (cmdDeleteDublicatesFromStaging.status === 0) {
+    const out = cmdDeleteDublicatesFromStaging.stdout?.trim()?.split('\n').filter(o => o !== './').join('\n')
+    console.log(out || 'no dublicate files')
+  } else {
+    onError(`error while deleting dublicate files from staging\n${cmdDeleteDublicatesFromStaging.stderr}`, cmdDeleteDublicatesFromStaging.status)
+  }
+}
 
 
 /** @type {(fullpath: string) => PathWithOrigin} */
