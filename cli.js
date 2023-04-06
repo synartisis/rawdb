@@ -19,8 +19,7 @@ const { values, positionals } =  parseArgs({ options: {}, allowPositionals: true
 const [ command, localPath, remotePath, ...restArgs ] = positionals
 
 if ((command !== 'fetch' && command !== 'push' && command !== 'init') || !localPath || !remotePath || restArgs.length > 0) {
-  console.log('usage: rawdb [command] [localPath] [remotePath]\n  commands: fetch, push, init')
-  process.exit(1)
+  onError('usage: rawdb [command] [localPath] [remotePath]\n  commands: fetch, push, init', 1)
 }
 
 const local = parsePath(localPath)
@@ -33,16 +32,14 @@ if (command === 'push') await push()
 
 async function fetch() {
   checkPaths(local, remote)
-  console.log(`fetching from ${remotePath}...`)
-  throw new Error('not implemented')
-  // const cmdListRemote = exec(`(cd ${remote.dirpath}; find . -type f)`, remote.origin)
-  // if (cmdListRemote.status === 0) {
-  //   const listRemote = cmdListRemote.stdout
-  //   console.log(listRemote)
-  // } else {
-  //   console.error(`error listing ${remotePath}`)
-  //   console.error(cmdListRemote.stderr)
-  // }
+  console.log(`fetching from ${remotePath}/${RAWDB_REMOTE_STAGING_DIR}`)
+  const cmdRSyncRemoteStagingToLocal = exec(`rsync -azu --out-format="%n" '${remotePath}/${RAWDB_REMOTE_STAGING_DIR}/' '${localPath}'`)
+  if (cmdRSyncRemoteStagingToLocal.status === 0) {
+    const rSyncRemoteStagingToLocal = cmdRSyncRemoteStagingToLocal.stdout
+    console.log(rSyncRemoteStagingToLocal?.trim() || 'nothing new')
+  } else {
+    onError(`error listing ${remotePath}`, cmdRSyncRemoteStagingToLocal.status)
+  }
   console.log(`rawdb fetch succesfully from ${remotePath}`)
 }
 
@@ -60,7 +57,7 @@ async function init() {
   console.log(`initializing rawdb on ${remotePath}...`)
   exec(`mkdir ${remote.dirpath}`, remote.origin)
   const cmdInitRawdb = exec(`(cd ${remote.dirpath}; [[ -f '${RAWDB_REMOTE_CONFIG_FILE}' ]] || echo '{}' > ${RAWDB_REMOTE_CONFIG_FILE}; mkdir ${RAWDB_REMOTE_PROD_DIR} ${RAWDB_REMOTE_STAGING_DIR})`, remote.origin)
-  if (cmdInitRawdb.status !== 0) { console.error(`cannot initialize rawdb to ${remotePath}`, cmdInitRawdb.stderr); process.exit(cmdInitRawdb.status) }
+  if (cmdInitRawdb.status !== 0) onError(`cannot initialize rawdb to ${remotePath}\n${cmdInitRawdb.stderr}`, cmdInitRawdb.status)
   console.log(`rawdb initialized succesfully to ${remotePath}`)
 }
 
@@ -69,16 +66,16 @@ async function init() {
 /** @type {(localPath: PathWithOrigin, remotePath: PathWithOrigin, initializing?: boolean) => any} */
 function checkPaths(localPath, remotePath, initializing = false) {
   const cmdSshLocal = exec(`exit`, localPath.origin)
-  if (cmdSshLocal.status !== 0) { console.error(`cannot connect to ${localPath.origin} referenced by [localPath]`); process.exit(cmdSshLocal.status) }
+  if (cmdSshLocal.status !== 0) onError(`cannot connect to ${localPath.origin} referenced by [localPath]`, cmdSshLocal.status)
   const cmdSshRemote = exec(`exit`, remotePath.origin)
-  if (cmdSshRemote.status !== 0) { console.error(`cannot connect to ${remotePath.origin} referenced by [remotePath]`); process.exit(cmdSshRemote.status) }
+  if (cmdSshRemote.status !== 0) onError(`cannot connect to ${remotePath.origin} referenced by [remotePath]`, cmdSshRemote.status)
   const cmdDirLocal = exec(`ls ${localPath.dirpath}`, localPath.origin)
-  if (cmdDirLocal.status !== 0) { console.error(`"${localPath.dirpath}" does not exist - referenced by [localPath]`); process.exit(cmdDirLocal.status) }
+  if (cmdDirLocal.status !== 0) onError(`"${localPath.dirpath}" does not exist - referenced by [localPath]`, cmdDirLocal.status)
   if (!initializing) {
     const cmdDirRemote = exec(`ls ${remotePath.dirpath}`, remotePath.origin)
-    if (cmdDirRemote.status !== 0) { console.error(`"${remotePath.dirpath}" does not exist - referenced by [remotePath]`); process.exit(cmdDirRemote.status) }
+    if (cmdDirRemote.status !== 0) onError(`"${remotePath.dirpath}" does not exist - referenced by [remotePath]`, cmdDirRemote.status)
     const cmdRemoteRawdb = exec(`ls ${remotePath.dirpath}/${RAWDB_REMOTE_CONFIG_FILE} ${remotePath.dirpath}/${RAWDB_REMOTE_PROD_DIR} ${remotePath.dirpath}/${RAWDB_REMOTE_STAGING_DIR}`, remotePath.origin)
-    if (cmdRemoteRawdb.status !== 0) { console.error(`error: rawdb is not initialized on remote.`); process.exit(cmdRemoteRawdb.status) }
+    if (cmdRemoteRawdb.status !== 0) onError(`error: rawdb is not initialized on remote.`, cmdRemoteRawdb.status)
   }
 }
 
@@ -110,4 +107,11 @@ function exec(command, origin) {
   } catch (/** @type {any} */error) {
     return { stdout: error.stdout.toString(), stderr: error.stderr.toString(), status: error.status}
   }
+}
+
+
+/** @type {(message: string, status: number) => void} */
+function onError(message, status) {
+  console.error(message)
+  process.exit(status)
 }
