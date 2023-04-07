@@ -66,7 +66,7 @@ async function push() {
   console.log(`pushing to ${remotePath}`)
   const newerFilesOnRemote = checkForNewerFilesOnRemote()
   if (newerFilesOnRemote) onError(`cannot push: there are newer files on remote. please fetch again.\nnewer files found:\n${newerFilesOnRemote}`, 1)
-  const rsyncLocalToRemote = exec(`rsync -azu --out-format="%n" --exclude ".rawdb" '${localPath}/' '${remotePath}/'`)
+  const rsyncLocalToRemote = exec(`rsync -azu --out-format="%n" --exclude ".rawdb" --delete '${localPath}/' '${remotePath}/'`)
   if (rsyncLocalToRemote.status === 0) {
     if (rsyncLocalToRemote.stdout) {
       console.log(rsyncOut(rsyncLocalToRemote.stdout, ' - '))
