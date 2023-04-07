@@ -13,9 +13,6 @@ import { execSync } from "node:child_process"
 import * as os from 'node:os'
 import * as fs from 'node:fs/promises'
 
-const RAWDB_LOCAL_SETTINGS_FILE = '.rawdb'
-const RAWDB_REMOTE_LOG_FILE = '.rawdb.log'
-
 const { values, positionals } =  parseArgs({ options: {}, allowPositionals: true })
 const [ command, localPath, remotePath, ...restArgs ] = positionals
 
@@ -36,7 +33,8 @@ if (command === 'push') await push()
 async function init() {
   checkPaths(local, remote, true)
   console.log(`initializing rawdb on ${remotePath}...`)
-  exec(`mkdir ${remote.dirpath}`, remote.origin)
+  exec(`mkdir -p ${remote.dirpath}/.rawdb/deleted/`, remote.origin)
+  updateRemoteIndex()
   console.log(`rawdb initialized succesfully to ${remotePath}`)
 }
 
@@ -44,8 +42,9 @@ async function init() {
 async function fetch() {
   checkPaths(local, remote)
   console.log(`fetching from ${remotePath}`)
+  markDeletionsOnRemote()
   localSettings.lastSync = getServerTime()
-  const rsyncRemoteToLocal = exec(`rsync -azu --out-format="%n" '${remotePath}/' '${localPath}/'`)
+  const rsyncRemoteToLocal = exec(`rsync -azu --out-format="%n" --exclude ".rawdb/" '${remotePath}/' '${localPath}/'`)
   if (rsyncRemoteToLocal.status === 0) {
     if (rsyncRemoteToLocal.stdout) {
       console.log(rsyncOut(rsyncRemoteToLocal.stdout, ' - '))
@@ -64,9 +63,10 @@ async function fetch() {
 async function push() {
   checkPaths(local, remote)
   console.log(`pushing to ${remotePath}`)
-  const newerFilesOnRemote = checkForNewerFilesOnRemote()
+  markDeletionsOnRemote()
+  const newerFilesOnRemote = checkForChangesOnRemote()
   if (newerFilesOnRemote) onError(`cannot push: there are newer files on remote. please fetch again.\nnewer files found:\n${newerFilesOnRemote}`, 1)
-  const rsyncLocalToRemote = exec(`rsync -azu --out-format="%n" --exclude ".rawdb" --delete '${localPath}/' '${remotePath}/'`)
+  const rsyncLocalToRemote = exec(`rsync -azu --out-format="%n" --exclude ".rawdb/" --delete '${localPath}/' '${remotePath}/'`)
   if (rsyncLocalToRemote.status === 0) {
     if (rsyncLocalToRemote.stdout) {
       console.log(rsyncOut(rsyncLocalToRemote.stdout, ' - '))
@@ -92,8 +92,10 @@ function checkPaths(local, remote, initializing = false) {
   const cmdDirLocal = exec(`ls ${local.dirpath}`, local.origin)
   if (cmdDirLocal.status !== 0) onError(`"${local.dirpath}" does not exist - referenced by [localPath]`, cmdDirLocal.status)
   if (!initializing) {
-    const cmdDirRemote = exec(`ls ${remote.dirpath}`, remote.origin)
-    if (cmdDirRemote.status !== 0) onError(`"${remote.dirpath}" does not exist - referenced by [remotePath]`, cmdDirRemote.status)
+    const cmdDirRemotePath = exec(`ls ${remote.dirpath}`, remote.origin)
+    if (cmdDirRemotePath.status !== 0) onError(`"${remote.dirpath}" does not exist - referenced by [remotePath]`, cmdDirRemotePath.status)
+    const cmdDirRemoteRawDb = exec(`ls ${remote.dirpath}/.rawdb/`, remote.origin)
+    if (cmdDirRemoteRawDb.status !== 0) onError(`rawdb is not initialized on "${remote.fullpath}" - run init command first`, cmdDirRemoteRawDb.status)
   }
 }
 
@@ -148,6 +150,20 @@ function getServerTime() {
 }
 
 
+function markDeletionsOnRemote() {
+  // compare remote listing with remote index
+  // a try
+  // echo `diff .rawdb/index .rawdb/index-new | grep '< ' | sed 's/< /.rawdb\/deleted\//'` && dirname "$_"
+
+  const cmdGetRemoteListing = exec(`(cd ${remote.dirpath}); find . -type f -not -path "./.rawdb/*")`, remote.origin)
+  if (cmdGetRemoteListing.status !== 0) onError(`cannot get remote index`, cmdGetRemoteListing.status)
+  const remoteListing = cmdGetRemoteListing.stdout
+  const newRemoteIndex = updateRemoteIndex()
+  console.log(remoteListing.split('\n'))
+  console.warn('** markDeletionsOnRemote not implemented')
+
+}
+
 function applyDeletionsFromRemote() {
   // read deletions from remote and apply them
   // remove old deletion entries from remote
@@ -156,10 +172,17 @@ function applyDeletionsFromRemote() {
 }
 
 
-function checkForNewerFilesOnRemote() {
-  const newerFiles = exec(`(cd ${remote.dirpath}; find . -type f -newermt "${localSettings.lastSync}")`, remote.origin)
-  if (newerFiles.status !== 0) onError(`rawdb error: cannot list newer files from remote`, newerFiles.status)
-  return newerFiles.stdout
+function checkForChangesOnRemote() {
+  const createdOrUpdatedFiles = exec(`(cd ${remote.dirpath}; find . -type f -not -path "./.rawdb/*" -newermt "${localSettings.lastSync}")`, remote.origin)
+  const deletedFiles = exec(`(cd ${remote.dirpath}.rawdb/deleted/; find . -type f -newermt "${localSettings.lastSync}")`, remote.origin)
+  if (createdOrUpdatedFiles.status !== 0 || deletedFiles.status !== 0) onError(`rawdb error: cannot find changes on remote`, createdOrUpdatedFiles.status + deletedFiles.status)
+  return createdOrUpdatedFiles.stdout + '\n' + deletedFiles.stdout
+}
+
+function updateRemoteIndex() {
+  const cmdUpdateRemoteIndex = exec(`(cd ${remote.dirpath}; find . -type f -not -path "./.rawdb/*" > .rawdb/index; cat .rawdb/index)`, remote.origin)
+  if (cmdUpdateRemoteIndex.status !== 0) onError(`rawdb error: cannot update remote index\n${cmdUpdateRemoteIndex.stderr}`, cmdUpdateRemoteIndex.status)
+  return cmdUpdateRemoteIndex.stdout
 }
 
 
@@ -167,7 +190,7 @@ function checkForNewerFilesOnRemote() {
 async function loadLocalSettings() {
   let json
   try {
-    const content = await fs.readFile(`${localPath}/${RAWDB_LOCAL_SETTINGS_FILE}`, 'utf-8')
+    const content = await fs.readFile(`${localPath}/.rawdb/rawdb-state.json`, 'utf-8')
     json = JSON.parse(content)
   } catch (error) {}
   if (!json || json.machineId !== os.hostname()) json = { machineId: os.hostname(), lastSync: '' }
@@ -176,5 +199,10 @@ async function loadLocalSettings() {
 
 
 async function saveLocalSettings() {
-  await fs.writeFile(`${localPath}/${RAWDB_LOCAL_SETTINGS_FILE}`, JSON.stringify(localSettings))
+  try {
+    await fs.mkdir(`${localPath}/.rawdb/`)
+  } catch (/**@type {any} */error) {
+    if (error.code !== 'EEXIST') throw error
+  }
+  await fs.writeFile(`${localPath}/.rawdb/rawdb-state.json`, JSON.stringify(localSettings))
 }
