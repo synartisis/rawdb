@@ -4,16 +4,17 @@
  * @typedef PathWithOrigin
  * @prop {string | undefined} origin
  * @prop {string} dirpath
+ * @prop {string} fullpath
  */
 
 
 import { parseArgs } from 'node:util'
-import { execSync } from "child_process"
+import { execSync } from "node:child_process"
+import * as os from 'node:os'
+import * as fs from 'node:fs/promises'
 
-const RAWDB_REMOTE_CONFIG_FILE = 'rawdb.json'
-const RAWDB_REMOTE_PROD_DIR = 'production'
-const RAWDB_REMOTE_STAGING_DIR = 'staging'
-
+const RAWDB_LOCAL_SETTINGS_FILE = '.rawdb'
+const RAWDB_REMOTE_LOG_FILE = '.rawdb.log'
 
 const { values, positionals } =  parseArgs({ options: {}, allowPositionals: true })
 const [ command, localPath, remotePath, ...restArgs ] = positionals
@@ -25,6 +26,8 @@ if ((command !== 'fetch' && command !== 'push' && command !== 'init') || !localP
 const local = parsePath(localPath)
 const remote = parsePath(remotePath)
 
+const localSettings = await loadLocalSettings()
+
 if (command === 'init') await init()
 if (command === 'fetch') await fetch()
 if (command === 'push') await push()
@@ -34,21 +37,25 @@ async function init() {
   checkPaths(local, remote, true)
   console.log(`initializing rawdb on ${remotePath}...`)
   exec(`mkdir ${remote.dirpath}`, remote.origin)
-  const cmdInitRawdb = exec(`(cd ${remote.dirpath}; [[ -f '${RAWDB_REMOTE_CONFIG_FILE}' ]] || echo '{}' > ${RAWDB_REMOTE_CONFIG_FILE}; mkdir ${RAWDB_REMOTE_PROD_DIR} ${RAWDB_REMOTE_STAGING_DIR})`, remote.origin)
-  if (cmdInitRawdb.status !== 0) onError(`cannot initialize rawdb to ${remotePath}\n${cmdInitRawdb.stderr}`, cmdInitRawdb.status)
   console.log(`rawdb initialized succesfully to ${remotePath}`)
 }
 
 
 async function fetch() {
   checkPaths(local, remote)
-  console.log(`fetching from ${remotePath}/${RAWDB_REMOTE_STAGING_DIR}`)
-  const cmdRSyncRemoteStagingToLocal = exec(`rsync -azu --out-format="%n" '${remotePath}/${RAWDB_REMOTE_STAGING_DIR}/' '${localPath}'`)
-  if (cmdRSyncRemoteStagingToLocal.status === 0) {
-    const rSyncRemoteStagingToLocal = cmdRSyncRemoteStagingToLocal.stdout
-    console.log(rSyncRemoteStagingToLocal?.trim() || 'nothing to fetch')
+  console.log(`fetching from ${remotePath}`)
+  localSettings.lastSync = getServerTime()
+  const rsyncRemoteToLocal = exec(`rsync -azu --out-format="%n" '${remotePath}/' '${localPath}/'`)
+  if (rsyncRemoteToLocal.status === 0) {
+    if (rsyncRemoteToLocal.stdout) {
+      console.log(rsyncOut(rsyncRemoteToLocal.stdout, ' - '))
+    } else {
+      console.log('nothing to fetch')
+    }
+    applyDeletionsFromRemote()
+    await saveLocalSettings()
   } else {
-    onError(`error fetching ${remotePath}/${RAWDB_REMOTE_STAGING_DIR}`, cmdRSyncRemoteStagingToLocal.status)
+    onError(`error fetching from ${remotePath}`, rsyncRemoteToLocal.status)
   }
   console.log(`rawdb fetch succesfully from ${remotePath}`)
 }
@@ -56,52 +63,37 @@ async function fetch() {
 
 async function push() {
   checkPaths(local, remote)
-  console.log(`pushing to ${remotePath}/${RAWDB_REMOTE_PROD_DIR}`)
-  const cmdRSyncLocalToRemoteProduction = exec(`rsync -azu --out-format="%n" '${localPath}/' '${remotePath}/${RAWDB_REMOTE_PROD_DIR}/'`)
-  if (cmdRSyncLocalToRemoteProduction.status === 0) {
-    const rSyncLocalToRemoteProduction = cmdRSyncLocalToRemoteProduction.stdout
-    console.log(rSyncLocalToRemoteProduction?.trim() || 'nothing to push')
-    deleteDublicatesFromStaging()
+  console.log(`pushing to ${remotePath}`)
+  const newerFilesOnRemote = checkForNewerFilesOnRemote()
+  if (newerFilesOnRemote) onError(`cannot push: there are newer files on remote. please fetch again.\nnewer files found:\n${newerFilesOnRemote}`, 1)
+  const rsyncLocalToRemote = exec(`rsync -azu --out-format="%n" --exclude ".rawdb" '${localPath}/' '${remotePath}/'`)
+  if (rsyncLocalToRemote.status === 0) {
+    if (rsyncLocalToRemote.stdout) {
+      console.log(rsyncOut(rsyncLocalToRemote.stdout, ' - '))
+    } else {
+      console.log('nothing to push')
+    }
+    localSettings.lastSync = getServerTime()
+    await saveLocalSettings()
   } else {
-    onError(`error fetching from ${remotePath}/${RAWDB_REMOTE_PROD_DIR}`, cmdRSyncLocalToRemoteProduction.status)
+    onError(`error pushing to ${remotePath}\n${rsyncLocalToRemote.stderr}`, rsyncLocalToRemote.status)
   }  
   console.log(`rawdb push succesfully to ${remotePath}`)
 }
 
 
 
-/** @type {(localPath: PathWithOrigin, remotePath: PathWithOrigin, initializing?: boolean) => any} */
-function checkPaths(localPath, remotePath, initializing = false) {
-  const cmdSshLocal = exec(`exit`, localPath.origin)
-  if (cmdSshLocal.status !== 0) onError(`cannot connect to ${localPath.origin} referenced by [localPath]`, cmdSshLocal.status)
-  const cmdSshRemote = exec(`exit`, remotePath.origin)
-  if (cmdSshRemote.status !== 0) onError(`cannot connect to ${remotePath.origin} referenced by [remotePath]`, cmdSshRemote.status)
-  const cmdDirLocal = exec(`ls ${localPath.dirpath}`, localPath.origin)
-  if (cmdDirLocal.status !== 0) onError(`"${localPath.dirpath}" does not exist - referenced by [localPath]`, cmdDirLocal.status)
+/** @type {(local: PathWithOrigin, remote: PathWithOrigin, initializing?: boolean) => any} */
+function checkPaths(local, remote, initializing = false) {
+  const cmdSshLocal = exec(`exit`, local.origin)
+  if (cmdSshLocal.status !== 0) onError(`cannot connect to ${local.origin} referenced by [localPath]`, cmdSshLocal.status)
+  const cmdSshRemote = exec(`exit`, remote.origin)
+  if (cmdSshRemote.status !== 0) onError(`cannot connect to ${remote.origin} referenced by [remotePath]`, cmdSshRemote.status)
+  const cmdDirLocal = exec(`ls ${local.dirpath}`, local.origin)
+  if (cmdDirLocal.status !== 0) onError(`"${local.dirpath}" does not exist - referenced by [localPath]`, cmdDirLocal.status)
   if (!initializing) {
-    const cmdDirRemote = exec(`ls ${remotePath.dirpath}`, remotePath.origin)
-    if (cmdDirRemote.status !== 0) onError(`"${remotePath.dirpath}" does not exist - referenced by [remotePath]`, cmdDirRemote.status)
-    const cmdRemoteRawdb = exec(`ls ${remotePath.dirpath}/${RAWDB_REMOTE_CONFIG_FILE} ${remotePath.dirpath}/${RAWDB_REMOTE_PROD_DIR} ${remotePath.dirpath}/${RAWDB_REMOTE_STAGING_DIR}`, remotePath.origin)
-    if (cmdRemoteRawdb.status !== 0) onError(`error: rawdb is not initialized on remote.`, cmdRemoteRawdb.status)
-  }
-}
-
-
-function deleteDublicatesFromStaging() {
-  // TODO: must check modified date. newer files on staging must not be deleted
-  // find staging/ -type f -newermt "2023-04-06T12:50:00";
-  // date -Iseconds
-  // rsync --files-from=
-
-  return console.log(`*** WARNING: delete dublicate files is not ready yet!!!!`)
-
-  console.log('deleting dublicate files from staging')
-  const cmdDeleteDublicatesFromStaging = exec(`rsync -azu --out-format="%n" --existing --ignore-non-existing --delete '${remote.dirpath}/${RAWDB_REMOTE_PROD_DIR}/' '${remote.dirpath}/${RAWDB_REMOTE_STAGING_DIR}/'`, remote.origin)
-  if (cmdDeleteDublicatesFromStaging.status === 0) {
-    const out = cmdDeleteDublicatesFromStaging.stdout?.trim()?.split('\n').filter(o => o !== './').join('\n')
-    console.log(out || 'no dublicate files')
-  } else {
-    onError(`error while deleting dublicate files from staging\n${cmdDeleteDublicatesFromStaging.stderr}`, cmdDeleteDublicatesFromStaging.status)
+    const cmdDirRemote = exec(`ls ${remote.dirpath}`, remote.origin)
+    if (cmdDirRemote.status !== 0) onError(`"${remote.dirpath}" does not exist - referenced by [remotePath]`, cmdDirRemote.status)
   }
 }
 
@@ -117,7 +109,7 @@ function parsePath(fullpath) {
     origin = p1
     dirpath = p2
   }
-  return { origin, dirpath }
+  return { origin, dirpath, fullpath }
 }
 
 
@@ -127,7 +119,7 @@ function exec(command, origin) {
     ? `ssh ${origin} '${command}'`
     : `${command}`
   try {
-    const stdout = execSync(finalCommand, { stdio: 'pipe' }).toString()
+    const stdout = execSync(finalCommand, { stdio: 'pipe' }).toString().trim()
     return { stdout, status: 0 }
   } catch (/** @type {any} */error) {
     return { stdout: error.stdout.toString(), stderr: error.stderr.toString(), status: error.status}
@@ -139,4 +131,50 @@ function exec(command, origin) {
 function onError(message, status) {
   console.error(message)
   process.exit(status)
+}
+
+
+/** @type {(out: string?, linePrefix?: string) => string} */
+function rsyncOut(out, linePrefix = '') {
+  if (!out) return ''
+  return out.split('\n').filter(o => !!o && o !== './').map(o => linePrefix + o).join('\n')
+}
+
+
+function getServerTime() {
+  const serverUTCTime = exec(`date -Iseconds`, remote.origin)
+  if (serverUTCTime.status !== 0) onError(`rawdb error: cannot read server time.\n${serverUTCTime.stderr}`, serverUTCTime.status)
+  return serverUTCTime.stdout
+}
+
+
+function applyDeletionsFromRemote() {
+  // read deletions from remote and apply them
+  // remove old deletion entries from remote
+  // local deletions ?
+  console.warn('** server deletions not implemented')
+}
+
+
+function checkForNewerFilesOnRemote() {
+  const newerFiles = exec(`(cd ${remote.dirpath}; find . -type f -newermt "${localSettings.lastSync}")`, remote.origin)
+  if (newerFiles.status !== 0) onError(`rawdb error: cannot list newer files from remote`, newerFiles.status)
+  return newerFiles.stdout
+}
+
+
+/** @returns {Promise<{ machineId: string, lastSync: string }>} */
+async function loadLocalSettings() {
+  let json
+  try {
+    const content = await fs.readFile(`${localPath}/${RAWDB_LOCAL_SETTINGS_FILE}`, 'utf-8')
+    json = JSON.parse(content)
+  } catch (error) {}
+  if (!json || json.machineId !== os.hostname()) json = { machineId: os.hostname(), lastSync: '' }
+  return json
+}
+
+
+async function saveLocalSettings() {
+  await fs.writeFile(`${localPath}/${RAWDB_LOCAL_SETTINGS_FILE}`, JSON.stringify(localSettings))
 }
