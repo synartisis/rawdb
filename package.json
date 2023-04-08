@@ -3,10 +3,10 @@
   "version": "0.0.3",
   "type": "module",
   "description": "",
-  "exports": "./rawdb.js",
-  "types": "rawdb.d.ts",
+  "exports": "./lib/rawdb.js",
+  "types": "lib/rawdb.d.ts",
   "bin": {
-    "rawdb": "cli.js"
+    "rawdb": "lib/cli/cli.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
