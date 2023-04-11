@@ -2,6 +2,7 @@
   "compilerOptions": {
     "checkJs": true,
     "strict": true,
+    "lib": ["ESNExt"],
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "nodenext"

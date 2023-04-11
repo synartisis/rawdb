@@ -15,9 +15,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@synartisis/htmlparser": "^0.1.1",
     "js-yaml": "^4.1.0",
     "marked": "^4.3.0",
+    "syn-html-parser": "^0.3.1",
     "tagel": "^0.6.1"
   }
 }
