@@ -24,6 +24,7 @@ declare global {
     }
 
     interface CollectionSettings {
+      url: string
       itemproperty: string | 'current'
       sort: numder?
     }
