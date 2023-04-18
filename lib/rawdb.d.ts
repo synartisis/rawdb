@@ -16,6 +16,7 @@ declare global {
     interface CollectionItem {
       _id: string
       _href: string
+      _filename: string
       [key: string]: any
     }
 
@@ -26,7 +27,8 @@ declare global {
     interface CollectionSettings {
       url: string
       itemproperty: string | 'current'
-      sort: numder?
+      sort: number
+      lazy: string[]
     }
 
     type Response = http.ServerResponse & {
