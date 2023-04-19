@@ -7,11 +7,13 @@ declare global {
 
   namespace rawdb {
 
-    interface State {
-      [key: string]: Collection
+    interface Collection {
+      name: string
+      url: string
+      path: string
+      lazyProperties: string[]
+      items: CollectionItem[]
     }
-
-    type Collection = CollectionItem[]
 
     interface CollectionItem {
       _id: string
@@ -26,9 +28,17 @@ declare global {
 
     interface CollectionSettings {
       url: string
-      itemproperty: string | 'current'
-      sort: number
+      itemproperty: string | 'currentItem'
+      sort: number | Function
       lazy: string[]
+    }
+
+    type State = {
+      currentCollection: Collection | null
+      currentItem: CollectionItem | null
+      prevItem: CollectionItem | null
+      nextItem: CollectionItem | null
+      [key: string]: any
     }
 
     type Response = http.ServerResponse & {
