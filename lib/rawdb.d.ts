@@ -23,13 +23,13 @@ declare global {
     }
 
     interface Settings {
-      [collection: string]: CollectionSettings | undefined
+      [collectionName: string]: CollectionSettings | undefined
     }
 
     interface CollectionSettings {
       url: string
-      itemproperty: string | 'currentItem'
-      sort: number | Function
+      itemproperty: string
+      sort: string[]
       lazy: string[]
     }
 
