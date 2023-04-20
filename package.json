@@ -9,7 +9,7 @@
     "rawdb": "lib/cli/cli.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "preversion": "tsc"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +17,11 @@
   "dependencies": {
     "js-yaml": "^4.1.0",
     "marked": "^4.3.0",
-    "syn-html-parser": "^0.3.7"
+    "syn-html-parser": "^0.4.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.5",
+    "@types/marked": "^4.0.8",
+    "@types/node": "^18.15.11"
   }
 }

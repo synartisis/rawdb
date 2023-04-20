@@ -1,6 +1,6 @@
 import * as http from 'node:http'
 
-export async function rawdb(rootDir: string): Promise<http.RequestListener>
+export function rawdb(rootDir: string): Promise<rawdb.RequestListener>
 
 
 declare global {
@@ -43,10 +43,9 @@ declare global {
 
     type Response = http.ServerResponse & {
       locals: any
-      [key: string]: string
     }
 
-    type RequestListener = http.RequestListener<http.IncomingMessage, Response>
+    type RequestListener = (req: http.IncomingMessage, res: Response) => Promise<void>
 
   }
 
