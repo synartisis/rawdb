@@ -1,6 +1,8 @@
 import * as http from 'node:http'
 
 export function rawdb(rootDir: string): Promise<rawdb.RequestListener>
+export function setSecret(key: string, value: string): Promise<void>
+export function getSecret(key: string): Promise<string | undefined>
 
 
 declare global {
