@@ -1,7 +1,9 @@
 import * as http from 'node:http'
 
 export function rawdb(rootDir: string): Promise<rawdb.RequestListener>
+export function getCollection(collectionNameOrUrl: string): rawdb.Collection | undefined
 export function getCollectionList(): string[]
+export function getItem(collectionName: string, id: string): Promise<any>
 export function setSecret(key: string, value: string): Promise<void>
 export function getSecret(key: string): Promise<string | undefined>
 
