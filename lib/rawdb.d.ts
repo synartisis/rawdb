@@ -1,8 +1,8 @@
 import * as http from 'node:http'
 
 export function rawdb(rootDir: string): Promise<rawdb.RequestListener>
+export function getCollectionNames(): string[]
 export function getCollection(collectionNameOrUrl: string): rawdb.Collection | undefined
-export function getCollectionList(): string[]
 export function getItem(collectionName: string, id: string, includeBodySource?: boolean): Promise<any>
 export function applyChanges(collectionName: string, _id: string, changes: rawdb.ChangeSet): Promise<any>
 export function setSecret(key: string, value: string): Promise<void>
@@ -15,6 +15,9 @@ declare global {
 
   namespace rawdb {
 
+    type ItemType = 'md' | 'json'
+    type ItemProperty = { name: string, isLazy: boolean, isBodyProp: boolean }
+
     interface Collection {
       name: string
       url: string
@@ -24,9 +27,14 @@ declare global {
     }
 
     interface CollectionItem {
-      _id: string
-      _href: string
-      _filename: string
+      meta: {
+        id: string;
+        href: string,
+        filename: string,
+        type: ItemType,
+        properties: ItemProperty[],
+        bodySource: string,
+      }
       [key: string]: any
     }
 
@@ -39,6 +47,13 @@ declare global {
       itemproperty: string
       sort: string[]
       lazy: string[]
+    }
+
+    type ParseResult = {
+      body: string
+      bodySource: string
+      bodyProps: string[] // names of properties parsed in body
+      [key: string]: any
     }
 
     type State = {
