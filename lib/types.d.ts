@@ -1,3 +1,5 @@
+import type * as http from 'node:http'
+
 export interface Collection {
   name: string
   url: string
@@ -52,9 +54,9 @@ export type Response = http.ServerResponse & {
 export type RequestListener = (req: http.IncomingMessage, res: Response) => Promise<void>
 
 export type State = {
-  currentCollection: types.Collection | null
-  currentItem: types.CollectionItem | null
-  prevItem: types.CollectionItem | null
-  nextItem: types.CollectionItem | null
+  currentCollection: Collection | null
+  currentItem: CollectionItem | null
+  prevItem: CollectionItem | null
+  nextItem: CollectionItem | null
   [key: string]: any
 }
