@@ -11,7 +11,7 @@
     "rawdb": "lib/cli/cli.js"
   },
   "scripts": {
-    "preversion": "tsc"
+    "preversion": "tsc -p jsconfig.json"
   },
   "keywords": [],
   "author": "",
