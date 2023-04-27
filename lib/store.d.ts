@@ -1,7 +1,7 @@
 export function getCollectionNames(): string[]
 export function getCollection(collectionNameOrUrl: string): Collection | undefined
 export function getItem(collectionName: string, id: string, includeBodySource?: boolean): Promise<any>
-export function applyChanges(collectionName: string, _id: string, changes: ChangeSet): Promise<any>
+export function applyChanges(collectionName: string, id: string, changes: ChangeSet): Promise<any>
 export function setSecret(key: string, value: string): Promise<void>
 export function getSecret(key: string): Promise<string | undefined>
 
