@@ -8,5 +8,6 @@
     "module": "ESNext",
     "target": "ESNext",
     "moduleResolution": "nodenext"
-  }
+  },
+  "include": ["./lib/**/*"]
 }

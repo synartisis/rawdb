@@ -4,14 +4,22 @@
   "type": "module",
   "description": "",
   "exports": {
-    ".": "./lib/rawdb.js",
-    "./store": "./lib/store.js"
+    ".": {
+      "types": "./types/rawdb.js",
+      "default": "./lib/rawdb.js"
+    },
+    "./store": {
+      "types": "./types/store.js",
+      "default": "./lib/store.js"
+    }
   },
   "bin": {
     "rawdb": "lib/cli/cli.js"
   },
   "scripts": {
-    "preversion": "tsc -p jsconfig.json"
+    "types:check": "tsc -p tsconfig.json",
+    "types:declarations": "tsc -p tsconfig.declarations.json && cp lib/types.d.ts types/",
+    "preversion": "npm run types:check && npm run types:declarations"
   },
   "keywords": [],
   "author": "",
