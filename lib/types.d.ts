@@ -5,6 +5,8 @@ export interface Config {
    * @example rootDir: 'my_content/'
    */
   rootDir: string
+  /** rawdb root Url */
+  rootUrl: string
 }
 
 export interface Collection {
