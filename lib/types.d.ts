@@ -6,7 +6,7 @@ export interface Config {
    */
   rootDir: string
   /** rawdb root Url */
-  rootUrl: string
+  rootUrl?: string
 }
 
 export interface Collection {

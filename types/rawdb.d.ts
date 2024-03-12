@@ -6,7 +6,7 @@
  * @param {Config} config configuration settings
  * @example rawdb.config({ rootDir: 'my_content/' })
  */
-export function config({ rootDir }: Config): Promise<void>;
+export function config({ rootDir, rootUrl }: Config): Promise<void>;
 /**
  * rawdb http middleware
  *
