@@ -15,6 +15,8 @@ export interface Collection {
   path: string
   lazyProperties: string[]
   items: CollectionItem[]
+  transformers: Array<Function>
+  addTransformer: (transformerFn: Function) => void
 }
 
 export interface CollectionItem {

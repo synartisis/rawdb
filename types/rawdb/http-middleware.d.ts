@@ -1,4 +1,3 @@
-/// <reference types="node" resolution-mode="require"/>
 /** @param {string} rootUrl  */
 export function httpMiddleware(rootUrl: string): (req: http.IncomingMessage, res: http.ServerResponse<http.IncomingMessage> & {
     locals: string;

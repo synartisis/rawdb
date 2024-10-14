@@ -1,4 +1,3 @@
-/// <reference types="node" resolution-mode="require"/>
 /** @typedef {import('./types.js').Config} Config */
 /**
  * rawdb configuration and loading
@@ -16,4 +15,4 @@ export function config({ rootDir, rootUrl }: Config): Promise<void>;
 export function middleware(): (req: import("http").IncomingMessage, res: import("http").ServerResponse<import("http").IncomingMessage> & {
     locals: string;
 }) => Promise<void>;
-export type Config = import('./types.js').Config;
+export type Config = import("./types.js").Config;
