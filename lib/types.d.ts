@@ -11,7 +11,7 @@ export interface Config {
    * 
    * default value is '/'
    * */
-  baseUrl: string
+  baseUrl?: string
 }
 
 export interface Collection {
@@ -37,7 +37,7 @@ export interface CollectionItem {
 }
 
 export interface Settings {
-  [collectionName: string]: CollectionSettings | undefined
+  [collectionName: string]: CollectionSettings
 }
 
 export interface CollectionSettings {
