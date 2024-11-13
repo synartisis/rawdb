@@ -1,0 +1,5 @@
+- http-middleware: refactor?, add data to "bag" if exists
+- cli: create ts models from data that are working with client
+- parser: support csv
+- create readme.md
+- tests

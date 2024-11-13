@@ -1,12 +1,17 @@
 export interface Config {
   /**
    * rawdb root directory  
+   * 
    * must be set to the root of content location
    * @example rootDir: 'my_content/'
    */
   rootDir: string
-  /** rawdb root Url */
-  rootUrl?: string
+  /**
+   * rawdb base Url
+   * 
+   * default value is '/'
+   * */
+  baseUrl: string
 }
 
 export interface Collection {
