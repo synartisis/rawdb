@@ -21,6 +21,7 @@ export interface Collection {
   lazyProperties: string[]
   items: CollectionItem[]
   transformers: Array<Function>
+  settings: CollectionSettings,
   addTransformer: (transformerFn: Function) => void
 }
 
