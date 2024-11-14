@@ -18,10 +18,11 @@ export interface Collection {
   name: string
   url: string
   path: string
+  itemproperty: string
+  sort: string[]
   lazyProperties: string[]
   items: CollectionItem[]
   transformers: Array<Function>
-  settings: CollectionSettings,
   addTransformer: (transformerFn: Function) => void
 }
 
@@ -38,14 +39,14 @@ export interface CollectionItem {
 }
 
 export interface Settings {
-  [collectionName: string]: CollectionSettings
+  [collectionName: string]: UserCollectionSettings
 }
 
-export interface CollectionSettings {
-  url: string
-  itemproperty: string
-  sort: string[]
-  lazy: string[]
+export type UserCollectionSettings = {
+  url: string,
+  itemproperty: string,
+  sort: string[],
+  lazyProperties: string[],
 }
 
 export type ItemType = 'md' | 'json'
